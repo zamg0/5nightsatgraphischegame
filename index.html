@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>5 Nights at Graphische</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        body {
+            font-family: 'VT323', monospace;
+            background-color: black;
+            user-select: none;
+            overflow: hidden;
+            margin: 0;
+            touch-action: none; 
+            height: 100dvh; 
+            width: 100vw;
+        }
+
+        /* CRT Overlay Effect */
+        .crt-overlay {
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 255, 0, 0.03));
+            background-size: 100% 4px, 3px 100%;
+            z-index: 100;
+        }
+
+        .crt-vignette {
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.9) 100%);
+            z-index: 101;
+        }
+
+        @keyframes static-noise {
+            0% { background-position: 0 0; }
+            100% { background-position: 100% 100%; }
+        }
+
+        .bg-static {
+            background-image: repeating-radial-gradient(circle at 17% 32%, rgba(255,255,255,0.2), rgba(0,0,0,0.3) 0.00085px);
+            animation: static-noise 0.2s infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            10% { transform: translate(-10px, -10px) scale(1.1); }
+            30% { transform: translate(10px, 15px) scale(1.05); }
+            50% { transform: translate(-15px, 5px) scale(1.1); }
+            70% { transform: translate(15px, -10px) scale(1.15); }
+        }
+
+        .jumpscare-anim { animation: shake 0.05s infinite; }
+
+        .door-slide { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .door-open { transform: translateY(-100%); }
+        .door-closed { transform: translateY(0); }
+
+        .cam-slide { transition: transform 0.4s ease-in-out; }
+        .cam-hidden { transform: translateY(100%); }
+        .cam-visible { transform: translateY(0); }
+
+        .touch-btn {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .cam-btn.active {
+            background-color: #22c55e;
+            color: black;
+            box-shadow: 0 0 15px #22c55e;
+        }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .animate-blink { animation: blink 1s infinite; }
+
+        /* Updated Menu Background with your Cover Image */
+        .menu-bg {
+            background-size: cover;
+            background-position: center;
+            background-image: linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url('https://raw.githubusercontent.com/zamg0/5nightsatgraphischegame/34bafc95c46f01d1043415a745f4f0882eefbfb6/1774520621037.png');
+        }
+    </style>
+</head>
+<body class="text-white relative overflow-hidden">
+
+    <div class="crt-overlay"></div>
+    <div class="crt-vignette"></div>
+
+    <!-- Main Menu: Text removed and button transparency increased -->
+    <div id="main-menu" class="absolute inset-0 z-[200] flex flex-col items-center justify-center p-6 text-center menu-bg">
+        <button onclick="startGame()" class="touch-btn text-3xl border-2 border-white/50 px-12 py-5 mt-4 hover:bg-white hover:text-black transition-all font-bold bg-black/10 backdrop-blur-[2px] shadow-2xl">
+            START GAME
+        </button>
+    </div>
+
+    <!-- Win Screen -->
+    <div id="win-screen" class="hidden absolute inset-0 bg-black z-[200] flex flex-col items-center justify-center">
+        <h1 class="text-8xl font-bold mb-4 text-yellow-500 animate-pulse">6:00 AM</h1>
+        <p class="text-2xl mb-8">Shift Completed</p>
+        <button onclick="location.reload()" class="touch-btn border border-white px-8 py-2">Continue</button>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container" class="hidden w-full h-full relative bg-gray-950">
+        
+        <!-- HUD -->
+        <div class="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-50 pointer-events-none">
+            <div class="bg-black/60 p-2 border border-gray-800 backdrop-blur-sm">
+                <p class="text-lg">POWER: <span id="power-display" class="font-bold text-green-400 text-2xl">100%</span></p>
+                <div id="usage-display" class="flex gap-1 mt-1"></div>
+            </div>
+            <div class="bg-black/60 p-2 border border-gray-800 text-right backdrop-blur-sm">
+                <h2 id="time-display" class="text-3xl font-bold">12:00 AM</h2>
+                <p class="text-xs text-gray-400 uppercase">Night 1</p>
+            </div>
+        </div>
+
+        <!-- Office View -->
+        <div class="w-full h-full relative bg-gray-900 overflow-hidden flex items-center justify-center">
+            
+            <!-- Left Room/Door -->
+            <div class="absolute left-0 top-0 bottom-0 w-[35%] bg-zinc-800 border-r-4 border-black relative overflow-hidden">
+                <img id="left-enemy" class="absolute inset-0 w-full h-full object-contain hidden opacity-0 transition-opacity z-0" src="" alt="">
+                <div id="door-left" class="absolute inset-0 bg-zinc-700 border-b-8 border-black z-10 door-slide door-open"></div>
+            </div>
+
+            <!-- Right Room/Door -->
+            <div class="absolute right-0 top-0 bottom-0 w-[35%] bg-zinc-800 border-l-4 border-black relative overflow-hidden">
+                <img id="right-enemy" class="absolute inset-0 w-full h-full object-contain hidden opacity-0 transition-opacity z-0 scale-x-[-1]" src="" alt="">
+                <div id="door-right" class="absolute inset-0 bg-zinc-700 border-b-8 border-black z-10 door-slide door-open"></div>
+            </div>
+
+            <!-- Central Desk & Monitor Button -->
+            <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-[45%] h-40 bg-zinc-900 border-t-4 border-black rounded-t-3xl shadow-2xl flex flex-col items-center justify-start pt-4 z-40 pb-safe">
+                <button onclick="toggleCamera()" class="touch-btn w-[85%] h-16 bg-zinc-800 border-2 border-white flex items-center justify-center font-bold tracking-[0.2em] text-xl hover:bg-white hover:text-black active:scale-95 transition-all shadow-[0_0_20px_rgba(255,255,255,0.15)]">
+                    MONITOR
+                </button>
+                <div class="mt-4 w-8 h-8 rounded-full border-4 border-gray-700 animate-spin" style="animation-duration: 0.3s;"></div>
+            </div>
+
+            <!-- Door Interaction Hotspots -->
+            <button onclick="toggleDoor('left')" id="ctrl-left" class="touch-btn absolute left-0 top-1/2 -translate-y-1/2 w-20 h-48 bg-red-900/40 border-r-4 border-red-500 z-50 rounded-r-2xl flex items-center justify-center font-bold text-sm uppercase vertical-text">DOOR</button>
+            <button onclick="toggleDoor('right')" id="ctrl-right" class="touch-btn absolute right-0 top-1/2 -translate-y-1/2 w-20 h-48 bg-red-900/40 border-l-4 border-red-500 z-50 rounded-l-2xl flex items-center justify-center font-bold text-sm uppercase vertical-text">DOOR</button>
+        </div>
+
+        <!-- Camera Overlay -->
+        <div id="camera-system" class="absolute inset-0 z-[110] bg-black cam-slide cam-hidden flex flex-col">
+            <div class="relative flex-grow bg-zinc-950 overflow-hidden">
+                <div class="absolute inset-0 bg-static opacity-20 pointer-events-none"></div>
+                <img id="cam-bg" class="absolute inset-0 w-full h-full object-cover opacity-60" src="" alt="">
+                <img id="cam-enemy-render" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[70%] object-contain transition-all" src="" alt="">
+                
+                <div class="absolute top-4 left-4 flex items-center gap-2 bg-black/60 p-2 border border-white/20">
+                    <div class="w-3 h-3 bg-red-600 rounded-full animate-blink"></div>
+                    <span id="cam-name" class="font-bold text-xl uppercase">CAM 1</span>
+                </div>
+
+                <button id="btn-audio-lure" onclick="playAudioLure()" class="touch-btn absolute top-4 right-4 bg-blue-700 px-6 py-3 font-bold border-2 border-white text-md shadow-lg">LURE AUDIO</button>
+                <button onclick="toggleCamera()" class="touch-btn absolute bottom-8 left-1/2 -translate-x-1/2 px-12 py-4 bg-zinc-900 border-2 border-white font-bold tracking-widest text-lg z-[120] active:bg-white active:text-black">CLOSE</button>
+            </div>
+
+            <!-- Map Selection -->
+            <div class="h-[35%] bg-zinc-900 p-3 grid grid-cols-3 gap-3 border-t-2 border-gray-700 pb-8">
+                <button onclick="switchCam('CAM1')" id="btn-CAM1" class="touch-btn cam-btn border border-gray-600 bg-black active text-lg">CAM 1</button>
+                <button onclick="switchCam('CAM2')" id="btn-CAM2" class="touch-btn cam-btn border border-gray-600 bg-black text-lg">CAM 2</button>
+                <button onclick="switchCam('CAM3')" id="btn-CAM3" class="touch-btn cam-btn border border-gray-600 bg-black text-lg">CAM 3</button>
+                <button onclick="switchCam('CAM4')" id="btn-CAM4" class="touch-btn cam-btn border border-gray-600 bg-black text-lg">CAM 4</button>
+                <button onclick="switchCam('CAM5')" id="btn-CAM5" class="touch-btn cam-btn border border-gray-600 bg-black text-lg">CAM 5</button>
+                <div class="flex items-center justify-center text-sm text-green-500 font-bold border border-green-900 bg-green-950/20">OFFICE</div>
+            </div>
+        </div>
+
+        <div id="blackout" class="hidden absolute inset-0 bg-black z-[150]"></div>
+        <div id="jumpscare-overlay" class="hidden absolute inset-0 z-[300] bg-black items-center justify-center jumpscare-anim">
+            <img id="jumpscare-face" class="h-full w-full object-contain" src="" alt="JUMPSCARE">
+        </div>
+    </div>
+
+    <script>
+        let gameActive = false, power = 100.0, usage = 1, hour = 0;
+        let cameraActive = false, currentCam = 'CAM1', isBlackout = false, lureCooldown = false;
+        let doors = { left: false, right: false };
+        let audioCtx, ambientDrone, fanNoise;
+
+        const mapData = {
+            'CAM1': { name: 'CAM 1 - KLASSENRAUM', imageUrl: 'https://raw.githubusercontent.com/zamg0/5nightsatgraphischegame/74461dc8609e8f7f75e684008125c769ebb30f0d/photo-1580582932707-520aed937b7b.avif' },
+            'CAM2': { name: 'CAM 2 - FOTOSTUDIO', imageUrl: 'https://raw.githubusercontent.com/zamg0/5nightsatgraphischegame/74461dc8609e8f7f75e684008125c769ebb30f0d/istockphoto-1304724841-612x612.jpg' },
+            'CAM3': { name: 'CAM 3 - DRUCKEREI', imageUrl: 'https://raw.githubusercontent.com/zamg0/5nightsatgraphischegame/74461dc8609e8f7f75e684008125c769ebb30f0d/8b-modern-day-offset-printing-heidelberg-speedmaster-sx-102-jennies-photos.jpg' },
+            'CAM4': { name: 'CAM 4 - GANG', imageUrl: 'https://raw.githubusercontent.com/zamg0/5nightsatgraphischegame/74461dc8609e8f7f75e684008125c769ebb30f0d/Bild_GLV_CMYK.jpg' },
+            'CAM5': { name: 'CAM 5 - PARK', imageUrl: 'https://raw.githubusercontent.com/zamg0/5nightsatgraphischegame/74461dc8609e8f7f75e684008125c769ebb30f0d/RET_IMGP6407.jpg' }
+        };
+
+        const enemies = [
+            { id: 'havrest', name: 'Havrest', imageUrl: 'https://raw.githubusercontent.com/zamg0/5nightsatgraphischegame/74461dc8609e8f7f75e684008125c769ebb30f0d/Gemini_Generated_Image_z3shv0z3shv0z3sh-removebg-preview.png', loc: 'CAM1', path: ['CAM1', 'CAM2', 'CAM4', 'LEFT_DOOR', 'OFFICE'], baseAi: 3 },
+            { id: 'eminger', name: 'Eminger', imageUrl: 'https://raw.githubusercontent.com/zamg0/5nightsatgraphischegame/74461dc8609e8f7f75e684008125c769ebb30f0d/image-removebg-preview.png', loc: 'CAM3', path: ['CAM3', 'CAM5', 'RIGHT_DOOR', 'OFFICE'], baseAi: 5 }
+        ];
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSynthSound(type) {
+            if (!audioCtx) return;
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.connect(g); g.connect(audioCtx.destination);
+            const n = audioCtx.currentTime;
+            if (type === 'blip') { o.frequency.value = 800; g.gain.value = 0.05; o.start(); o.stop(n + 0.05); }
+            else if (type === 'door') { o.type = 'triangle'; o.frequency.value = 100; g.gain.value = 0.2; o.start(); o.stop(n + 0.15); }
+            else if (type === 'lure') { o.type = 'square'; o.frequency.value = 300; g.gain.value = 0.1; o.start(); o.stop(n + 0.4); }
+        }
+
+        function startGame() {
+            initAudio();
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('game-container').classList.remove('hidden');
+            gameActive = true;
+            updateHUD();
+            
+            setInterval(() => { if (gameActive) { hour++; updateHUD(); if (hour >= 6) winGame(); } }, 30000);
+            setInterval(() => {
+                if (!gameActive || isBlackout) return;
+                usage = 1 + (doors.left ? 1 : 0) + (doors.right ? 1 : 0) + (cameraActive ? 1 : 0);
+                power -= (0.15 * usage);
+                if (power <= 0) triggerBlackout();
+                updateHUD();
+            }, 1000);
+            setInterval(() => { if (gameActive && !isBlackout) moveEnemies(); }, 4000);
+        }
+
+        function toggleDoor(side) {
+            if (isBlackout) return;
+            doors[side] = !doors[side];
+            const dEl = document.getElementById(`door-${side}`), cEl = document.getElementById(`ctrl-${side}`);
+            if (doors[side]) {
+                dEl.classList.replace('door-open', 'door-closed');
+                cEl.classList.replace('bg-red-900/40', 'bg-green-600/60');
+                cEl.classList.replace('border-red-500', 'border-green-400');
+            } else {
+                dEl.classList.replace('door-closed', 'door-open');
+                cEl.classList.replace('bg-green-600/60', 'bg-red-900/40');
+                cEl.classList.replace('border-green-400', 'border-red-500');
+            }
+            playSynthSound('door');
+        }
+
+        function toggleCamera() {
+            if (isBlackout) return;
+            cameraActive = !cameraActive;
+            const camSys = document.getElementById('camera-system');
+            camSys.classList.toggle('cam-hidden');
+            camSys.classList.toggle('cam-visible');
+            if (cameraActive) renderCamView();
+            playSynthSound('blip');
+        }
+
+        function switchCam(camId) {
+            currentCam = camId;
+            document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${camId}`).classList.add('active');
+            document.getElementById('cam-name').innerText = mapData[camId].name;
+            document.getElementById('cam-bg').src = mapData[camId].imageUrl;
+            renderCamView();
+            playSynthSound('blip');
+        }
+
+        function playAudioLure() {
+            if (lureCooldown || isBlackout) return;
+            playSynthSound('lure');
+            lureCooldown = true;
+            const btn = document.getElementById('btn-audio-lure');
+            btn.classList.add('opacity-50'); btn.innerText = 'RECHARGING';
+            setTimeout(() => { lureCooldown = false; btn.classList.remove('opacity-50'); btn.innerText = 'LURE AUDIO'; }, 6000);
+            enemies.forEach(e => {
+                let tIdx = e.path.indexOf(currentCam), cIdx = e.path.indexOf(e.loc);
+                if (tIdx !== -1 && cIdx !== -1 && Math.abs(tIdx - cIdx) === 1) e.loc = currentCam;
+            });
+            renderCamView();
+        }
+
+        function moveEnemies() {
+            enemies.forEach(e => {
+                if (Math.random() * 20 < (e.baseAi + hour)) {
+                    let idx = e.path.indexOf(e.loc);
+                    if (idx < e.path.length - 1) {
+                        let next = e.path[idx + 1];
+                        if (next === 'LEFT_DOOR' && doors.left) { e.loc = 'CAM4'; return; }
+                        if (next === 'RIGHT_DOOR' && doors.right) { e.loc = 'CAM5'; return; }
+                        if (next === 'OFFICE') { triggerJumpscare(e); return; }
+                        e.loc = next;
+                    }
+                }
+            });
+            checkOfficeDoors();
+            if (cameraActive) renderCamView();
+        }
+
+        function checkOfficeDoors() {
+            const lEl = document.getElementById('left-enemy'), rEl = document.getElementById('right-enemy');
+            let lOcc = enemies.find(e => e.loc === 'LEFT_DOOR'), rOcc = enemies.find(e => e.loc === 'RIGHT_DOOR');
+            if (lOcc && !doors.left) { lEl.src = lOcc.imageUrl; lEl.classList.remove('hidden'); lEl.style.opacity = 1; }
+            else { lEl.classList.add('hidden'); lEl.style.opacity = 0; }
+            if (rOcc && !doors.right) { rEl.src = rOcc.imageUrl; rEl.classList.remove('hidden'); rEl.style.opacity = 1; }
+            else { rEl.classList.add('hidden'); rEl.style.opacity = 0; }
+        }
+
+        function renderCamView() {
+            const r = document.getElementById('cam-enemy-render');
+            let occ = enemies.find(e => e.loc === currentCam);
+            if (occ) { r.src = occ.imageUrl; r.style.opacity = 1; }
+            else { r.style.opacity = 0; }
+        }
+
+        function updateHUD() {
+            const p = document.getElementById('power-display');
+            p.innerText = `${Math.ceil(Math.max(0, power))}%`;
+            document.getElementById('time-display').innerText = `${hour === 0 ? 12 : hour}:00 AM`;
+            let uStr = '';
+            for(let i=0; i<4; i++) uStr += `<div class="w-3 h-5 ${i < usage ? 'bg-green-500' : 'bg-gray-800'} border border-black"></div>`;
+            document.getElementById('usage-display').innerHTML = uStr;
+            if (power <= 20) p.classList.add('text-red-500', 'animate-pulse');
+        }
+
+        function triggerBlackout() {
+            isBlackout = true; power = 0; updateHUD();
+            document.getElementById('blackout').classList.remove('hidden');
+            if(cameraActive) toggleCamera();
+            setTimeout(() => triggerJumpscare(enemies[0]), 5000);
+        }
+
+        function triggerJumpscare(enemy) {
+            gameActive = false;
+            const o = document.getElementById('jumpscare-overlay');
+            document.getElementById('jumpscare-face').src = enemy.imageUrl;
+            o.classList.remove('hidden'); o.classList.add('flex');
+            setTimeout(() => location.reload(), 3000);
+        }
+
+        function winGame() { gameActive = false; document.getElementById('win-screen').classList.remove('hidden'); }
+
+        window.addEventListener('touchstart', initAudio, { once: true });
+    </script>
+</body>
+</html>
+
